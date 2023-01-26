@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tensorloader"
+version = "0.1.0"
+authors = [{ name = "ZHB", email = "zhb2000@zju.edu.cn" }]
+description = "A faster dataloader for tensor data."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.8"
+keywords = ["pytorch"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed"
+]
+
+[project.urls]
+"Source" = "https://github.com/zhb2000/tensorloader"
+"Bug Tracker" = "https://github.com/zhb2000/tensorloader/issues"
