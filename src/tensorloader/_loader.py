@@ -12,7 +12,8 @@ class TensorLoader(Generic[T]):
 
     __slots__ = (
         '__data',
-        '__tensor',
+        '__length',
+        '__data_type',
         'batch_size',
         'shuffle',
         'drop_last',
@@ -42,26 +43,35 @@ class TensorLoader(Generic[T]):
             Keep it as `False` when using a tuple as data. Set it to `True` when using a
             namedtuple as data. (default: `False`)
         """
-        self.__data = data
+        self.__data: Union[Tensor, Tuple[Tensor, ...]]
         if isinstance(data, tuple):
-            if any(len(x) != len(data[0]) for x in data):
-                raise ValueError('length of tensors are not the same')
-            self.__tensor = data[0]
+            self.__data = tuple(data)
+            self.__length = len(data[0])
+            for i, x in enumerate(data):
+                if len(x) != self.__length:
+                    raise ValueError(
+                        f'length of tensors are not the same, length of the first tensor is {self.__length}, '
+                        f'but the length of tensor at index {i} is {len(x)}'
+                    )
+        elif isinstance(data, Tensor):
+            self.__data = data
+            self.__length = len(data)
         else:
-            self.__tensor = data
+            raise TypeError(f'unsupported data type: {type(data)}')
+        self.__data_type = type(data)
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.drop_last = drop_last
         self.unpack_args = unpack_args
 
     def __iter__(self) -> Iterator[T]:
-        if isinstance(self.__data, tuple):
+        if issubclass(self.__data_type, tuple):
             return self.__tuple_iter()
         else:
             return self.__tensor_iter()
 
     def __len__(self) -> int:
-        batch_num, remainder = divmod(len(self.__tensor), self.batch_size)
+        batch_num, remainder = divmod(self.__length, self.batch_size)
         if remainder > 0 and not self.drop_last:
             batch_num += 1
         return batch_num
@@ -70,7 +80,7 @@ class TensorLoader(Generic[T]):
         if typing.TYPE_CHECKING:
             assert isinstance(self.__data, Tensor)
         if self.shuffle:
-            indices = torch.randperm(len(self.__tensor), device=self.__tensor.device)
+            indices = torch.randperm(self.__length, device=self.__data.device)
             self.__data = self.__data[indices].contiguous()
         for start in range(0, len(self) * self.batch_size, self.batch_size):
             stop = start + self.batch_size
@@ -79,11 +89,11 @@ class TensorLoader(Generic[T]):
     def __tuple_iter(self) -> Iterator[Tuple[Tensor, ...]]:
         if typing.TYPE_CHECKING:
             assert isinstance(self.__data, tuple)
-        TupleType = type(self.__data)
+            assert issubclass(self.__data_type, tuple)
         if self.shuffle:
-            indices = torch.randperm(len(self.__tensor), device=self.__tensor.device)
-            self.__data = TupleType(x[indices] for x in self.__data)
+            indices = torch.randperm(self.__length, device=self.__data[0].device)
+            self.__data = self.__data_type(x[indices.to(x.device)].contiguous() for x in self.__data)
         for start in range(0, len(self) * self.batch_size, self.batch_size):
             stop = start + self.batch_size
             iterable = (x[start:stop] for x in self.__data)
-            yield TupleType(*iterable) if self.unpack_args else TupleType(iterable)
+            yield self.__data_type(*iterable) if self.unpack_args else self.__data_type(iterable)
